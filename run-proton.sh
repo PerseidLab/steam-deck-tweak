@@ -37,7 +37,7 @@ if [[ "$1" == "--uninstall" ]]; then
 fi
 
 # INSTALL BLOCK
-if [[ "$1" == "--install" ]] || [[ -z "$1" && -t 0 ]]; then
+if [[ "$1" == "--install" ]]; then
     SCRIPT_PATH=$(realpath "$0")
     echo "Registering script and creating utility shortcuts..."
 
@@ -143,11 +143,10 @@ export SDL_HINT_JOYSTICK_HIDAPI=0
 SNIPER_PLATFORM=$(ls -d "$RUNTIME_BASE"/sniper_platform_* 2>/dev/null | tail -n 1)
 export PRESSURE_VESSEL_RUNTIME_ARCHIVE="$SNIPER_PLATFORM/files"
 
-# Check if an argument was provided
+# If no argument is provided, default to explorer
 if [ -z "$1" ]; then
-    echo "Usage: $0 <path-to-exe> OR <wine-command>"
-    echo "Flags: --install, --uninstall"
-    exit 1
+    echo "No argument provided. Defaulting to Proton Explorer..."
+    set -- "explorer"
 fi
 
 # --- SMART PATH HANDLING ---
