@@ -11,6 +11,7 @@ from tkinter import ttk, filedialog
 from tkinter import messagebox
 import shutil
 import threading
+import glob
 
 HOME = os.path.expanduser("~")
 DEFAULT_COMPATDATA = os.path.join(HOME, ".steam/steam/steamapps/compatdata")
@@ -87,6 +88,8 @@ class ProtonManager:
         buttons = ttk.Frame(self.root)
         buttons.pack(pady=5)
 
+        # Added Run EXE Button
+        ttk.Button(buttons, text="Run EXE", command=self.run_exe).pack(side="left", padx=6)
         ttk.Button(buttons, text="Browse Prefix Dir", command=self.open_prefix).pack(side="left", padx=6)
         ttk.Button(buttons, text="Browse Game Dir", command=self.open_game_dir).pack(side="left", padx=6)
         ttk.Button(buttons, text="Convert WMV", command=self.convert_wmv).pack(side="left", padx=6)
@@ -135,6 +138,49 @@ class ProtonManager:
 
         self.progress_count += 1
         self.progress_var.set(self.progress_count)
+
+    # ---------------- EXE Runner ----------------
+
+    def run_exe(self):
+        item = self.get_selected()
+        if not item:
+            messagebox.showwarning("No Selection", "Select a game first.")
+            return
+
+        appid = item[0]
+        prefix_dir = os.path.join(self.compatdata_path.get(), str(appid), "pfx")
+
+        exe_path = filedialog.askopenfilename(
+            title="Select EXE to run",
+            filetypes=[("Executables", "*.exe"), ("All Files", "*.*")]
+        )
+        if not exe_path:
+            return
+
+        # Look for a Proton installation to find 'wine'
+        proton_dirs = glob.glob(os.path.join(DEFAULT_STEAMAPPS, "common", "Proton*"))
+        proton_dirs.sort(reverse=True)
+
+        wine_path = None
+        for p_dir in proton_dirs:
+            # Typical path for wine in Proton
+            target = os.path.join(p_dir, "files", "bin", "wine")
+            if os.path.exists(target):
+                wine_path = target
+                break
+
+        if not wine_path:
+            messagebox.showerror("Error", "Could not find a Proton 'wine' binary in SteamApps/common.")
+            return
+
+        # Setup environment
+        env = os.environ.copy()
+        env["WINEPREFIX"] = prefix_dir
+
+        try:
+            subprocess.Popen([wine_path, exe_path], env=env, cwd=os.path.dirname(exe_path))
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to launch: {e}")
 
     # ---------------- WMV Converter ----------------
 
