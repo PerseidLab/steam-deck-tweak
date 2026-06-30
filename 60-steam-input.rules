@@ -1,5 +1,3 @@
-KERNEL=="hidraw*", TAG+="uaccess"
-
 # Valve USB devices
 SUBSYSTEMS=="usb", ATTRS{idVendor}=="28de", MODE="0660", TAG+="uaccess"
 
@@ -9,8 +7,14 @@ KERNEL=="uinput", SUBSYSTEM=="misc", TAG+="uaccess", OPTIONS+="static_node=uinpu
 # Valve HID devices over USB hidraw
 KERNEL=="hidraw*", ATTRS{idVendor}=="28de", MODE="0660", TAG+="uaccess"
 
-# Valve HID devices over bluetooth hidraw
-KERNEL=="hidraw*", KERNELS=="*28DE:*", MODE="0660", TAG+="uaccess"
+# Valve HID devices hidraw
+SUBSYSTEM=="hidraw", KERNELS=="000[356]:28DE:*", MODE="0660", TAG+="uaccess"
+
+# Valve HID devices over bluetooth evdev
+SUBSYSTEM=="input", ATTRS{id/vendor}=="28de", MODE="0660", TAG+="uaccess"
+
+# Allow wakeup from Valve devices (Steam Controller 2015 receiver, Steam Controller 2026 receiver, Steam Machine Bluetooth)
+ACTION=="add", SUBSYSTEM=="usb", ATTRS{idVendor}=="28de", ATTR{power/wakeup}=="*", ATTR{power/wakeup}="enabled"
 
 # DualShock 3 over USB hidraw
 KERNEL=="hidraw*", ATTRS{idVendor}=="054c", ATTRS{idProduct}=="0268", MODE="0660", TAG+="uaccess"
@@ -62,6 +66,9 @@ KERNEL=="hidraw*", ATTRS{idVendor}=="0e6f", ATTRS{idProduct}=="0184", MODE="0660
 
 # PDP Wired Fight Pad Pro for Nintendo Switch
 KERNEL=="hidraw*", ATTRS{idVendor}=="0e6f", ATTRS{idProduct}=="0185", MODE="0660", TAG+="uaccess"
+
+# Logic3 Rock Candy Wired Controller for Nintendo Switch
+KERNEL=="hidraw*", ATTRS{idVendor}=="0e6f", ATTRS{idProduct}=="0187", MODE="0660", TAG+="uaccess"
 
 # PowerA Wired Controller for Nintendo Switch
 KERNEL=="hidraw*", ATTRS{idVendor}=="20d6", ATTRS{idProduct}=="a711", MODE="0660", TAG+="uaccess"
@@ -169,7 +176,7 @@ KERNEL=="hidraw*", ATTRS{idVendor}=="9886", ATTRS{idProduct}=="0025", MODE="0660
 KERNEL=="hidraw*", ATTRS{idVendor}=="044f", ATTRS{idProduct}=="d00e", MODE="0660", TAG+="uaccess"
 
 # EdgeTX and OpenTX radio controllers in gamepad mode over USB hidraw
-KERNEL=="hidraw*", ATTRS{idVendor}=="1209", ATTRS{idProduct}=="4f54", MODE="0660" TAG+="uaccess"
+KERNEL=="hidraw*", ATTRS{idVendor}=="1209", ATTRS{idProduct}=="4f54", MODE="0660", TAG+="uaccess"
 
 # Thrustmaster TFRP Rudder
 KERNEL=="hidraw*", ATTRS{idVendor}=="044f", ATTRS{idProduct}=="b679", MODE="0660", TAG+="uaccess"
@@ -227,6 +234,15 @@ KERNEL=="hidraw*", ATTRS{idVendor}=="37d7", MODE="0660", TAG+="uaccess"
 
 # Nintendo Wii U/Switch Wired GameCube Controller Adapter
 SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTRS{idVendor}=="057e", ATTRS{idProduct}=="0337", MODE="0660", TAG+="uaccess"
+
+# Nintendo Switch 2 Joy-Con (R) over USB
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTRS{idVendor}=="057e", ATTRS{idProduct}=="2066", MODE="0660", TAG+="uaccess"
+
+# Nintendo Switch 2 Joy-Con (L) over USB
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTRS{idVendor}=="057e", ATTRS{idProduct}=="2067", MODE="0660", TAG+="uaccess"
+
+# Nintendo Switch 2 Pro Controller over USB
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTRS{idVendor}=="057e", ATTRS{idProduct}=="2069", MODE="0660", TAG+="uaccess"
 
 # Nintendo Switch 2 GameCube Controller over USB
 SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTRS{idVendor}=="057e", ATTRS{idProduct}=="2073", MODE="0660", TAG+="uaccess"
