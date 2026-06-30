@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+sudo steamos-readonly disable
+
 set -e
 
 # Get directory where script is located
