@@ -1,5 +1,7 @@
 #!/bin/bash
 
+sudo steamos-readonly disable
+
 # Define the config file path
 CONF_FILE="/etc/sysctl.d/99-unprivileged-ports.conf"
 
