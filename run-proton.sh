@@ -1,173 +1,193 @@
 #!/bin/bash
 
-# --- 0. CONFIGURATION & PATHS ---
-DESKTOP_DIR="$HOME/.local/share/applications"
-MAIN_DESKTOP="run-proton.desktop"
+# Paths
+HERE="$(dirname "$(readlink -f "${0}")")"
+SCRIPT_PATH="${APPIMAGE:-$(readlink -f "$0")}"
+SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
+APPS_DIR="$HOME/.local/share/applications"
+# Proton Paths
+INTERNAL_PROTON_BASE="$HOME/.steam/steam/compatibilitytools.d/GE-Proton9-27/"
+# Prefix Path
+PROTON_PREFIX="$HOME/sharedprotonprefix/"
 
-EXTRA_DESKTOPS=("proton-explorer.desktop" "proton-winecfg.desktop" "proton-reboot.desktop" "proton-terminal.desktop" "proton-control.desktop")
 
-# Paths to Proton and the Steam Linux Runtime (SLR)
-PROTON_PATH="$HOME/.steam/steam/compatibilitytools.d/GE-Proton10-29"
-RUNTIME_BASE="$HOME/.steam/steam/steamapps/common/SteamLinuxRuntime_sniper"
 
-# Path to the Wine prefix
-PREFIX_PATH="$HOME/sharedprotonprefix"
-mkdir -p "$PREFIX_PATH"
-
-# --- 1. SELF-INSTALLATION / UNINSTALLATION LOGIC ---
-
-# UNINSTALL BLOCK
-if [[ "$1" == "--uninstall" ]]; then
-    echo "Reverting installation..."
-
-    # Remove main runner
-    rm -f "$DESKTOP_DIR/$MAIN_DESKTOP"
-
-    # Remove the extra shortcuts (Now includes terminal)
-    for file in "${EXTRA_DESKTOPS[@]}"; do
-        if [ -f "$DESKTOP_DIR/$file" ]; then
-            rm "$DESKTOP_DIR/$file"
-            echo "Removed: $file"
-        fi
-    done
-
-    update-desktop-database "$DESKTOP_DIR"
-    echo "Uninstallation complete. .exe files will revert to system defaults."
-    exit 0
-fi
-
-# INSTALL BLOCK
+# Installation / Uninstallation Logic
 if [[ "$1" == "--install" ]]; then
-    SCRIPT_PATH=$(realpath "$0")
-    echo "Registering script and creating utility shortcuts..."
+    mkdir -p "$APPS_DIR"
+    echo "Installing desktop shortcuts and MIME types..."
 
-    mkdir -p "$DESKTOP_DIR"
-
-    # A. Main EXE Runner
-    cat <<EOF > "$DESKTOP_DIR/$MAIN_DESKTOP"
+    cat <<EOF > "$APPS_DIR/run-proton.desktop"
 [Desktop Entry]
-Type=Application
-Name=Proton Runner
-Comment=Run Windows EXEs via GE-Proton
+Name=Proton Launcher
 Exec="$SCRIPT_PATH" %f
 Icon=steam
+Type=Application
 Terminal=false
-Categories=Utility;
-MimeType=application/x-ms-dos-executable;application/x-msdownload;application/x-executable;
+Categories=Utility
+MimeType=application/x-ms-dos-executable;application/x-msi;application/x-msdownload;
 EOF
 
-    # B. Wine Explorer Shortcut
-    cat <<EOF > "$DESKTOP_DIR/proton-explorer.desktop"
+    cat <<EOF > "$APPS_DIR/proton-explorer.desktop"
 [Desktop Entry]
-Type=Application
 Name=Proton Explorer
-Comment=Open Wine File Browser for this prefix
 Exec="$SCRIPT_PATH" explorer
 Icon=folder-wine
+Type=Application
 Terminal=false
 Categories=Utility;
 EOF
 
-    # C. Winecfg Shortcut
-    cat <<EOF > "$DESKTOP_DIR/proton-winecfg.desktop"
+    cat <<EOF > "$APPS_DIR/proton-winecfg.desktop"
 [Desktop Entry]
-Type=Application
-Name=Proton Config
-Comment=Change Wine settings for this prefix
+Name=Proton Winecfg
 Exec="$SCRIPT_PATH" winecfg
 Icon=wine-winecfg
+Type=Application
 Terminal=false
 Categories=Utility;
 EOF
 
-    # D. Wineboot (Kill) Shortcut
-    cat <<EOF > "$DESKTOP_DIR/proton-reboot.desktop"
+    cat <<EOF > "$APPS_DIR/proton-reboot.desktop"
 [Desktop Entry]
-Type=Application
-Name=Proton Kill/Reboot
-Comment=Simulate a reboot or kill hung processes
+Name=Proton Reboot (Kill)
 Exec="$SCRIPT_PATH" wineboot -k
 Icon=system-reboot
+Type=Application
 Terminal=false
 Categories=Utility;
 EOF
 
-# E. Proton Terminal Shortcut
-    cat <<EOF > "$DESKTOP_DIR/proton-terminal.desktop"
+cat <<EOF > "$APPS_DIR/proton-cmd.desktop"
 [Desktop Entry]
-Type=Application
-Name=Proton Terminal
-Comment=Open a terminal inside the Proton environment
+Name=Proton Command Prompt
 Exec="$SCRIPT_PATH" cmd
 Icon=utilities-terminal
+Type=Application
 Terminal=false
 Categories=Utility;
 EOF
 
-    cat <<EOF > "$DESKTOP_DIR/proton-control.desktop"
+    cat <<EOF > "$APPS_DIR/proton-control.desktop"
 [Desktop Entry]
-Type=Application
 Name=Proton Control Panel
-Comment=Open a Control Panel inside the Proton environment
 Exec="$SCRIPT_PATH" control
 Icon=preferences-system
+Type=Application
 Terminal=false
 Categories=Utility;
 EOF
 
-    chmod +x "$DESKTOP_DIR"/*.desktop
-    xdg-mime default "$MAIN_DESKTOP" application/x-ms-dos-executable
-    xdg-mime default "$MAIN_DESKTOP" application/x-msdownload
-    update-desktop-database "$DESKTOP_DIR"
-
+    chmod +x "$APPS_DIR"/run-proton.desktop "$APPS_DIR"/proton-explorer.desktop "$APPS_DIR"/proton-winecfg.desktop "$APPS_DIR"/proton-reboot.desktop
+    xdg-mime default run-proton.desktop application/x-ms-dos-executable
+    xdg-mime default run-proton.desktop application/x-msi
+    xdg-mime default run-proton.desktop application/x-msdownload
+    update-desktop-database "$APPS_DIR" 2>/dev/null
     echo "Installation complete!"
+    exit 0
+
+elif [[ "$1" == "--uninstall" ]]; then
+    echo "Removing shortcuts and resetting MIME types..."
+    rm -f "$APPS_DIR/run-proton.desktop" "$APPS_DIR/proton-explorer.desktop" "$APPS_DIR/proton-winecfg.desktop" "$APPS_DIR/proton-reboot.desktop" "$APPS_DIR/proton-cmd.desktop" "$APPS_DIR/proton-control.desktop"
+    xdg-mime uninstall "$APPS_DIR/run-proton.desktop" 2>/dev/null
+    update-desktop-database "$APPS_DIR" 2>/dev/null
+    echo "Uninstallation complete!"
     exit 0
 fi
 
-# --- 2. EXECUTION LOGIC ---
+# Default Argument Logic
+if [ -z "$1" ]; then
+    set -- "explorer"
+fi
 
-# Environment Variables
-export STEAM_COMPAT_CLIENT_INSTALL_PATH="$HOME/.steam/steam"
-export STEAM_COMPAT_DATA_PATH="$PREFIX_PATH"
-export PROTON_VERB="run"
+# Path Resolution Logic
+# If the first argument is a file (or a link to a file), resolve its real path.
+if [ -f "$1" ]; then
+    REAL_PATH=$(readlink -f "$1")
+    # Shift the old path out and set the real path as the first argument
+    shift
+    set -- "$REAL_PATH" "$@"
+    echo "Resolved shortcut/link to: $REAL_PATH"
+fi
+
+
+INTERNAL_PROTON_SCRIPT="$INTERNAL_PROTON_BASE/proton"
+
+# Export Environment Variables
+export WINEPREFIX="$PROTON_PREFIX/pfx"
+export STEAM_COMPAT_DATA_PATH="$PROTON_PREFIX"
+export STEAM_COMPAT_CLIENT_INSTALL_PATH="$HERE"
+export WINEDLLPATH="$INTERNAL_PROTON_BASE/files/lib64/wine:$INTERNAL_PROTON_BASE/files/lib/wine"
 export PROTON_DISABLE_LSTEAMCLIENT=1
 export PROTON_NO_STEAM=1
 export PROTON_USE_WOW64=1
 export PROTON_MEDIA_USE_GST=1
-mkdir -p "$PREFIX_PATH/gstreamer-1.0/"
-export WINE_GST_REGISTRY_DIR="$PREFIX_PATH/gstreamer-1.0/"
 export SDL_GAMECONTROLLER_IGNORE_DEVICES="$SDL_GAMECONTROLLER_IGNORE_DEVICES,0x057e/0x2009,0x057e/0x2006,0x057e/0x2007,0x0e6f/0x0180,0x0e6f/0x0184,0x0e6f/0x0185,0x0e6f/0x0188,0x20d6/0xa711,0x20d6/0xa712,0x20d6/0xa713"
 export SDL_GAMECONTROLLER_ALLOW_STEAM_VIRTUAL_GAMEPAD=1
 export SDL_GAMECONTROLLER_USE_BUTTON_LABELS=1
+export GST_PLUGIN_SYSTEM_PATH_1_0="$GST_PLUGIN_SYSTEM_PATH_1_0:$HERE/opt/GE-Proton/files/lib/i386-linux-gnu/gstreamer-1.0/:$HERE/opt/GE-Proton/files/lib/x86_64-linux-gnu/gstreamer-1.0/:$HERE/opt/GE-Proton/files/lib/gstreamer-1.0/:$HERE/opt/GE-Proton/files/lib64/gstreamer-1.0/:$HERE/gstreamer-1.0/x86_64/:$HERE/gstreamer-1.0/i386/"
+mkdir -p "$PROTON_PREFIX/gstreamer-1.0/"
+export WINE_GST_REGISTRY_DIR="$PROTON_PREFIX/gstreamer-1.0/"
 
-# Steam Runtime Integration
-SNIPER_PLATFORM=$(ls -d "$RUNTIME_BASE"/sniper_platform_* 2>/dev/null | tail -n 1)
-export PRESSURE_VESSEL_RUNTIME_ARCHIVE="$SNIPER_PLATFORM/files"
+# Define potential Steam installation roots (Standard, Flatpak, and umu)
+PATHS=(
+    "$HOME/.steam/steam/steamapps/common/SteamLinuxRuntime_sniper/"
+    "$HOME/.var/app/com.valvesoftware.Steam/.steam/steam/steamapps/common/SteamLinuxRuntime_sniper/"
+    "$HOME/.local/share/umu/steamrt3/"
+)
 
-# If no argument is provided, default to explorer
-if [ -z "$1" ]; then
-    echo "No argument provided. Defaulting to Proton Explorer..."
-    set -- "explorer"
+# Find the first path that actually exists
+SLR_ROOT=""
+for path in "${PATHS[@]}"; do
+    if [ -d "$path" ]; then
+        SLR_ROOT="$path"
+        break
+    fi
+done
+
+# Initialize SLR_LIBS
+SLR_LIBS=""
+
+if [ -n "$SLR_ROOT" ]; then
+    echo "Found Steam Linux Runtime (or equivalent) at: $SLR_ROOT"
+    # Search for i386-linux-gnu folders and extract all unique subdirs containing .so files
+    SL_SEARCH_RESULT=$(find "$SLR_ROOT" -type d -name "i386-linux-gnu" -exec find {} -name "*.so*" -printf '%h\n' \; 2>/dev/null | sort -u | tr '\n' ':')
+    SLR_LIBS="$SL_SEARCH_RESULT"
+else
+    echo "Warning: SteamLinuxRuntime_sniper/umu not found. Using system libraries..."
 fi
 
-# --- SMART PATH HANDLING ---
-# If the first argument is an existing file, treat it as an EXE runner
-if [ -f "$1" ]; then
-    EXE_PATH=$(realpath "$1")
-    EXE_DIR=$(dirname "$EXE_PATH")
-    cd "$EXE_DIR" || exit
+export LD_LIBRARY_PATH="$SLR_LIBS$LD_LIBRARY_PATH"
 
-    shift
-    SET_ARGS=("$EXE_PATH" "$@")
-else
-    # Otherwise, treat arguments as direct wine commands (explorer, winecfg, etc.)
-    SET_ARGS=("${@}")
+export PROTON_NO_ESYNC=0
+export WINEESYNC=1
+export PROTON_NO_FSYNC=0
+export WINEFSYNC=1
+export WINESYNC=1
+
+# Execution Logic
+if [ ! -d "$PROTON_PREFIX/pfx" ]; then
+    echo "Creating prefix structure at $PROTON_PREFIX/pfx..."
+    mkdir -p "$PROTON_PREFIX/pfx"
 fi
 
-# --- 3. EXECUTE VIA THE RUNTIME ENTRY POINT ---
-if [ -d "$RUNTIME_BASE" ]; then
-    "$RUNTIME_BASE/run-in-sniper" -- "$PROTON_PATH/proton" run "${SET_ARGS[@]}"
+# Wine binary path
+WINE_WOW64="$INTERNAL_PROTON_BASE/files/bin-wow64/wine"
+WINE_64="$INTERNAL_PROTON_BASE/files/bin/wine64"
+WINE_STD="$INTERNAL_PROTON_BASE/files/bin/wine"
+
+if [ ! -f "$PROTON_PREFIX/tracked_files" ]; then
+    echo "First run or prefix incomplete. Launching Proton..."
+    if [ -f "$INTERNAL_PROTON_SCRIPT" ]; then
+        python3 "$INTERNAL_PROTON_SCRIPT" run winecfg
+    fi
+fi
+
+echo "Launching Wine..."
+if [ -f "$WINE_WOW64" ]; then
+    exec "$WINE_WOW64" "$@"
+elif [ -f "$WINE_64" ]; then
+    exec "$WINE_64" "$@"
 else
-    echo "Warning: Steam Runtime not found at $RUNTIME_BASE. Attempting direct execution..."
-    "$PROTON_PATH/proton" run "${SET_ARGS[@]}"
+    exec "$WINE_STD" "$@"
 fi
