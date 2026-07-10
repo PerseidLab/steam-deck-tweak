@@ -23,7 +23,7 @@ check transparent huge pages status : `cat /sys/kernel/mm/transparent_hugepage/e
 **run-proton.sh**  :  
 
 a lightweight bash utility to register Proton as a system-wide handler for Windows executables (.exe) on Linux. This allows you to run Windows applications and games using the Steam Linux Runtime (Sniper) directly from your file manager.  
-requirement :  GE-Proton10-29 (or edit the PROTON_PATH to match your version), Steam Linux Runtime Sniper.  
+requirement :  GE-Proton10-29 (or edit the INTERNAL_PROTON_BASE to match your version), Steam Linux Runtime Sniper.  
 installation : ``./run-proton.sh --install  ``  
 uninstallation : ``./run-proton.sh --uninstall``  
 this script uses a single shared wine prefix (~/sharedprotonprefix).  
