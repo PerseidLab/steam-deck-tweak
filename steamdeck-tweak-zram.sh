@@ -40,10 +40,10 @@ if [ ! -f "$SWAPFILE" ]; then
         # Explicitly disable compression for this file
         sudo btrfs property set "$SWAPFILE" compression none
         # Now allocate the actual size
-        sudo fallocate -l 16G "$SWAPFILE"
+        sudo fallocate -l 1G "$SWAPFILE"
     else
         # Standard allocation for Ext4/XFS/other
-        sudo fallocate -l 16G "$SWAPFILE" || sudo dd if=/dev/zero of="$SWAPFILE" bs=1G count=1 status=progress
+        sudo fallocate -l 1G "$SWAPFILE" || sudo dd if=/dev/zero of="$SWAPFILE" bs=1G count=1 status=progress
     fi
 
     sudo chmod 600 "$SWAPFILE"
