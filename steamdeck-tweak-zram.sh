@@ -19,7 +19,7 @@ ZRAM_CONF="/usr/lib/systemd/zram-generator.conf"
 echo "[3/13] Writing zram-generator configuration..."
 sudo tee "$ZRAM_CONF" > /dev/null <<EOF
 [zram0]
-zram-size = ram/2
+zram-size = ram
 compression-algorithm = zstd
 swap-priority = 100
 fs-type = swap
@@ -31,7 +31,7 @@ SWAPFILE="/home/swapfile2"
 FILESYSTEM=$(stat -f -c %T "$(dirname "$SWAPFILE")")
 
 if [ ! -f "$SWAPFILE" ]; then
-    echo "[4/13] Creating 16GB swapfile on $FILESYSTEM..."
+    echo "[4/13] Creating 1GB swapfile on $FILESYSTEM..."
 
     if [ "$FILESYSTEM" == "btrfs" ]; then
         # Btrfs requires the file to be 0-length when setting +C (No CoW)
@@ -43,7 +43,7 @@ if [ ! -f "$SWAPFILE" ]; then
         sudo fallocate -l 16G "$SWAPFILE"
     else
         # Standard allocation for Ext4/XFS/other
-        sudo fallocate -l 16G "$SWAPFILE" || sudo dd if=/dev/zero of="$SWAPFILE" bs=1G count=16 status=progress
+        sudo fallocate -l 16G "$SWAPFILE" || sudo dd if=/dev/zero of="$SWAPFILE" bs=1G count=1 status=progress
     fi
 
     sudo chmod 600 "$SWAPFILE"
