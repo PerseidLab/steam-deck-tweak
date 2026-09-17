@@ -1,0 +1,4 @@
+#!/bin/bash
+
+mkdir -p ~/.config/environment.d
+echo "KWIN_FORCE_SW_CURSOR=1" > ~/.config/environment.d/mouse.conf
