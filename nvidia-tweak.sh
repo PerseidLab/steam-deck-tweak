@@ -3,7 +3,7 @@
 ENV_FILE="/etc/environment"
 
 VARIABLES=(
-"export DXVK_CONFIG=\"dxvk.enableGraphicsPipelineLibrary = False\""
+"export DXVK_HUD=compiler"
 "export DXVK_STATE_CACHE=1"
 "export DXVK_ASYNC=1"
 "export __GL_SHADER_DISK_CACHE=1"
