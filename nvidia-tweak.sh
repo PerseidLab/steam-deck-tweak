@@ -3,11 +3,11 @@
 ENV_FILE="/etc/environment"
 
 VARIABLES=(
-"export DXVK_HUD=compiler"
-"export DXVK_STATE_CACHE=1"
-"export DXVK_ASYNC=1"
-"export __GL_SHADER_DISK_CACHE=1"
-"export __GL_SHADER_DISK_CACHE_SIZE=10737418240"
+"DXVK_HUD=compiler"
+"DXVK_STATE_CACHE=1"
+"DXVK_ASYNC=1"
+"__GL_SHADER_DISK_CACHE=1"
+"__GL_SHADER_DISK_CACHE_SIZE=10737418240"
 )
 
 # Check for root/sudo privileges
