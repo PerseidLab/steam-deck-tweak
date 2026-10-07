@@ -6,10 +6,9 @@ SCRIPT_PATH="${APPIMAGE:-$(readlink -f "$0")}"
 SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
 APPS_DIR="$HOME/.local/share/applications"
 # Proton Paths
-INTERNAL_PROTON_BASE="$HOME/.steam/steam/compatibilitytools.d/GE-Proton9-27/"
+INTERNAL_PROTON_BASE="$HOME/.steam/steam/compatibilitytools.d/GE-Proton11-7/"
 # Prefix Path
 PROTON_PREFIX="$HOME/sharedprotonprefix/"
-
 
 
 # Installation / Uninstallation Logic
@@ -58,7 +57,7 @@ Terminal=false
 Categories=Utility;
 EOF
 
-cat <<EOF > "$APPS_DIR/proton-cmd.desktop"
+    cat <<EOF > "$APPS_DIR/proton-cmd.desktop"
 [Desktop Entry]
 Name=Proton Command Prompt
 Exec="$SCRIPT_PATH" cmd
@@ -78,7 +77,7 @@ Terminal=false
 Categories=Utility;
 EOF
 
-    chmod +x "$APPS_DIR"/run-proton.desktop "$APPS_DIR"/proton-explorer.desktop "$APPS_DIR"/proton-winecfg.desktop "$APPS_DIR"/proton-reboot.desktop
+    chmod +x "$APPS_DIR"/run-proton.desktop "$APPS_DIR"/proton-explorer.desktop "$APPS_DIR"/proton-winecfg.desktop "$APPS_DIR"/proton-reboot.desktop "$APPS_DIR"/proton-cmd.desktop "$APPS_DIR"/proton-control.desktop
     xdg-mime default run-proton.desktop application/x-ms-dos-executable
     xdg-mime default run-proton.desktop application/x-msi
     xdg-mime default run-proton.desktop application/x-msdownload
@@ -129,35 +128,16 @@ export GST_PLUGIN_SYSTEM_PATH_1_0="$GST_PLUGIN_SYSTEM_PATH_1_0:$HERE/opt/GE-Prot
 mkdir -p "$PROTON_PREFIX/gstreamer-1.0/"
 export WINE_GST_REGISTRY_DIR="$PROTON_PREFIX/gstreamer-1.0/"
 
-# Define potential Steam installation roots (Standard, Flatpak, and umu)
-PATHS=(
-    "$HOME/.steam/steam/steamapps/common/SteamLinuxRuntime_sniper/"
-    "$HOME/.var/app/com.valvesoftware.Steam/.steam/steam/steamapps/common/SteamLinuxRuntime_sniper/"
-    "$HOME/.local/share/umu/steamrt3/"
-)
+# Detect Steam Linux Runtime (SLR) entry point
+SLR_ENTRY=""
+UMU_SLR="$HOME/.local/share/umu/steamrt4/_v2-entry-point"
+STEAM_SLR="$HOME/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/_v2-entry-point"
 
-# Find the first path that actually exists
-SLR_ROOT=""
-for path in "${PATHS[@]}"; do
-    if [ -d "$path" ]; then
-        SLR_ROOT="$path"
-        break
-    fi
-done
-
-# Initialize SLR_LIBS
-SLR_LIBS=""
-
-if [ -n "$SLR_ROOT" ]; then
-    echo "Found Steam Linux Runtime (or equivalent) at: $SLR_ROOT"
-    # Search for i386-linux-gnu folders and extract all unique subdirs containing .so files
-    SL_SEARCH_RESULT=$(find "$SLR_ROOT" -type d -name "i386-linux-gnu" -exec find {} -name "*.so*" -printf '%h\n' \; 2>/dev/null | sort -u | tr '\n' ':')
-    SLR_LIBS="$SL_SEARCH_RESULT"
-else
-    echo "Warning: SteamLinuxRuntime_sniper/umu not found. Using system libraries..."
+if [ -f "$UMU_SLR" ]; then
+    SLR_ENTRY="$UMU_SLR"
+elif [ -f "$STEAM_SLR" ]; then
+    SLR_ENTRY="$STEAM_SLR"
 fi
-
-export LD_LIBRARY_PATH="$SLR_LIBS$LD_LIBRARY_PATH"
 
 export PROTON_NO_ESYNC=0
 export WINEESYNC=1
@@ -165,29 +145,35 @@ export PROTON_NO_FSYNC=0
 export WINEFSYNC=1
 export WINESYNC=1
 
-# Execution Logic
+# Prefix Creation
 if [ ! -d "$PROTON_PREFIX/pfx" ]; then
     echo "Creating prefix structure at $PROTON_PREFIX/pfx..."
     mkdir -p "$PROTON_PREFIX/pfx"
 fi
 
-# Wine binary path
-WINE_WOW64="$INTERNAL_PROTON_BASE/files/bin-wow64/wine"
-WINE_64="$INTERNAL_PROTON_BASE/files/bin/wine64"
-WINE_STD="$INTERNAL_PROTON_BASE/files/bin/wine"
-
+# Initial run check
 if [ ! -f "$PROTON_PREFIX/tracked_files" ]; then
     echo "First run or prefix incomplete. Launching Proton..."
     if [ -f "$INTERNAL_PROTON_SCRIPT" ]; then
-        python3 "$INTERNAL_PROTON_SCRIPT" run winecfg
+        if [ -n "$SLR_ENTRY" ]; then
+            "$SLR_ENTRY" -- python3 "$INTERNAL_PROTON_SCRIPT" run winecfg
+        else
+            python3 "$INTERNAL_PROTON_SCRIPT" run winecfg
+        fi
     fi
 fi
 
-echo "Launching Wine..."
-if [ -f "$WINE_WOW64" ]; then
-    exec "$WINE_WOW64" "$@"
-elif [ -f "$WINE_64" ]; then
-    exec "$WINE_64" "$@"
+# Execution Logic
+echo "Launching Wine via Proton..."
+if [ -f "$INTERNAL_PROTON_SCRIPT" ]; then
+    if [ -n "$SLR_ENTRY" ]; then
+        echo "Using Steam Linux Runtime: $SLR_ENTRY"
+        exec "$SLR_ENTRY" -- python3 "$INTERNAL_PROTON_SCRIPT" run "$@"
+    else
+        echo "Steam Linux Runtime not found. Executing Proton directly..."
+        exec python3 "$INTERNAL_PROTON_SCRIPT" run "$@"
+    fi
 else
-    exec "$WINE_STD" "$@"
+    echo "Error: Internal Proton script not found at $INTERNAL_PROTON_SCRIPT"
+    exit 1
 fi
