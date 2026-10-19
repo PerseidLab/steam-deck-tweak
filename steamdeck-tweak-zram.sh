@@ -31,7 +31,7 @@ SWAPFILE="/home/swapfile2"
 FILESYSTEM=$(stat -f -c %T "$(dirname "$SWAPFILE")")
 
 if [ ! -f "$SWAPFILE" ]; then
-    echo "[4/13] Creating 16GB swapfile on $FILESYSTEM..."
+    echo "[4/13] Creating 1GB swapfile on $FILESYSTEM..."
 
     if [ "$FILESYSTEM" == "btrfs" ]; then
         # Btrfs requires the file to be 0-length when setting +C (No CoW)
@@ -40,10 +40,10 @@ if [ ! -f "$SWAPFILE" ]; then
         # Explicitly disable compression for this file
         sudo btrfs property set "$SWAPFILE" compression none
         # Now allocate the actual size
-        sudo fallocate -l 16G "$SWAPFILE"
+        sudo fallocate -l 1G "$SWAPFILE"
     else
         # Standard allocation for Ext4/XFS/other
-        sudo fallocate -l 16G "$SWAPFILE" || sudo dd if=/dev/zero of="$SWAPFILE" bs=1G count=16 status=progress
+        sudo fallocate -l 1G "$SWAPFILE" || sudo dd if=/dev/zero of="$SWAPFILE" bs=1G count=1 status=progress
     fi
 
     sudo chmod 600 "$SWAPFILE"
@@ -128,6 +128,7 @@ WantedBy=multi-user.target
 EOF
 
 sudo systemctl daemon-reload
+sudo systemctl restart dev-zram0.swap
 sudo systemctl enable disable-thp.service
 sudo systemctl start disable-thp.service
 
