@@ -1,74 +1,145 @@
+```bash
 #!/bin/bash
-set -e
+set -Eeuo pipefail
 
 echo "=== Reverting SteamOS Tweaks & Reconfiguring ZRAM (ram/2) ==="
 
-# 1. Reconfigure ZRAM to ram/2
-ZRAM_CONF="/usr/lib/systemd/zram-generator.conf"
-echo "[1/11] Setting ZRAM to ram/2..."
-sudo tee "$ZRAM_CONF" > /dev/null <<EOF
+ZRAM_CONF="/etc/systemd/zram-generator.conf"
+
+echo "[1/10] Setting ZRAM to ram/2..."
+
+sudo install -d /etc/systemd
+
+sudo tee "$ZRAM_CONF" >/dev/null <<'EOF'
 [zram0]
 zram-size = ram / 2
 compression-algorithm = zstd
 swap-priority = 100
 fs-type = swap
 EOF
+
 sudo systemctl daemon-reload
-sudo systemctl restart /dev/zram0 || echo "Note: ZRAM will fully update on next reboot."
 
-# 2. Disable and remove ZSWAP service
-echo "[2/11] Removing ZSWAP configuration service..."
-sudo systemctl stop zswap-configure.service || true
-sudo systemctl disable zswap-configure.service || true
-sudo rm -f /etc/systemd/system/zswap-configure.service
+echo "ZRAM configuration updated."
+echo "A reboot may be required to recreate the ZRAM device."
 
-# 3. Disable and remove Swapfile
 SWAPFILE="/home/swapfile2"
-if [ -f "$SWAPFILE" ]; then
-    echo "[3/11] Disabling and removing swapfile..."
-    sudo swapoff "$SWAPFILE" || true
+
+echo "[2/10] Safely disabling and removing swapfile..."
+
+if [[ -f "$SWAPFILE" ]]; then
+    if sudo swapon --show=NAME --noheadings |
+        grep -Fxq "$SWAPFILE"; then
+
+        if ! sudo swapoff "$SWAPFILE"; then
+            echo "ERROR: Could not disable $SWAPFILE."
+            echo "The swapfile has NOT been deleted."
+            exit 1
+        fi
+    fi
+
     sudo rm -f "$SWAPFILE"
+    echo "Swapfile removed."
+else
+    echo "Swapfile does not exist; skipping."
 fi
 
-# 4. Remove swapfile from fstab
-echo "[4/11] Removing swapfile entry from /etc/fstab..."
-sudo sed -i "\|/home/swapfile2|d" /etc/fstab
+echo "[3/10] Removing swapfile entry from /etc/fstab..."
 
-# 5. Revert Swappiness
-echo "[5/11] Removing swappiness override..."
+if [[ -f /etc/fstab ]]; then
+    sudo sed -i '\|/home/swapfile2|d' /etc/fstab
+fi
+
+echo "[4/10] Removing swappiness override..."
+
 sudo rm -f /etc/sysctl.d/99-swappiness.conf
 
-# 6. Remove MGLRU configuration
-echo "[6/11] Removing MGLRU configuration..."
-sudo rm -f /etc/tmpfiles.d/mglru.conf
+echo "[5/10] Removing MGLRU configuration..."
 
-# 7. Remove memlock limits
-echo "[7/11] Removing memlock limits..."
+sudo rm -f /etc/tmpfiles.d/mglru.conf
+sudo rm -f /usr/local/sbin/configure-mglru
+sudo rm -f /etc/systemd/system/configure-mglru.service
+
+echo "[6/10] Removing memlock limits..."
+
 sudo rm -f /etc/security/limits.d/memlock.conf
 
-# 8. Disable ntsync module loading
-echo "[8/11] Removing ntsync module config..."
+echo "[7/10] Removing ntsync module configuration..."
+
 sudo rm -f /etc/modules-load.d/ntsync.conf
 
-# 9. Disable and remove THP disable service
-echo "[9/11] Re-enabling Transparent Huge Pages (standard behavior)..."
-sudo systemctl stop disable-thp.service || true
-sudo systemctl disable disable-thp.service || true
-sudo rm -f /etc/systemd/system/disable-thp.service
+echo "[8/10] Restoring Transparent Huge Pages management..."
 
-# 10. Re-enable CPU security mitigations (If they were disabled)
-GRUB_FILE="/etc/default/grub"
-if grep -q "mitigations=off" "$GRUB_FILE"; then
-    echo "[10/11] Re-enabling CPU security mitigations..."
-    sudo sed -i 's/mitigations=off //' "$GRUB_FILE"
-    sudo grub-mkconfig -o /boot/efi/EFI/steamos/grub.cfg || echo "Warning: grub-mkconfig failed."
+THP_SERVICE="/etc/systemd/system/disable-thp.service"
+
+sudo systemctl disable --now disable-thp.service 2>/dev/null || true
+sudo rm -f "$THP_SERVICE"
+
+THP_ENABLED="/sys/kernel/mm/transparent_hugepage/enabled"
+THP_DEFRAG="/sys/kernel/mm/transparent_hugepage/defrag"
+
+if [[ -w "$THP_ENABLED" ]]; then
+    echo always | sudo tee "$THP_ENABLED" >/dev/null ||
+        echo "WARNING: Could not restore THP enabled setting."
 fi
 
-# 11. Finalize and Re-enable readonly filesystem
-echo "[11/11] Finalizing and re-enabling SteamOS readonly mode..."
+if [[ -w "$THP_DEFRAG" ]]; then
+    echo always | sudo tee "$THP_DEFRAG" >/dev/null ||
+        echo "WARNING: Could not restore THP defrag setting."
+fi
+
+echo "[9/10] Restoring CPU security mitigation configuration..."
+
+GRUB_FILE="/etc/default/grub"
+
+if [[ -f "$GRUB_FILE" ]] &&
+    grep -qE '(^|[[:space:]])mitigations=off([[:space:]]|$)' "$GRUB_FILE"; then
+
+    sudo sed -i \
+        's/mitigations=off[[:space:]]*//g' \
+        "$GRUB_FILE"
+
+    echo "Removed mitigations=off from GRUB configuration."
+    echo "SteamOS may not use this GRUB file for its active boot configuration."
+else
+    echo "No mitigations=off setting found in the GRUB file."
+fi
+
+echo "[10/10] Reloading system configuration..."
+
 sudo systemctl daemon-reload
-sudo systemctl daemon-reexec
 sudo sysctl --system
+
+echo
+echo "========================================"
+echo " REVERT STATUS"
+echo "========================================"
+
+echo
+echo "ZRAM configuration:"
+cat "$ZRAM_CONF"
+
+echo
+echo "Active swap devices:"
+swapon --show
+
+echo
+echo "Swappiness:"
+sysctl vm.swappiness || true
+
+echo
+echo "THP enabled:"
+cat /sys/kernel/mm/transparent_hugepage/enabled 2>/dev/null || true
+
+echo
+echo "THP defrag:"
+cat /sys/kernel/mm/transparent_hugepage/defrag 2>/dev/null || true
+
+echo
+echo "Re-enabling SteamOS readonly mode..."
+
 sudo steamos-readonly enable
 
-echo "=== Revert complete. Please reboot your Steam Deck to ensure all changes take effect. ==="
+echo
+echo "=== Revert complete. Reboot your Steam Deck to apply ZRAM changes. ==="
+```
